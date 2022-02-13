@@ -2,20 +2,27 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { LoginStackNavigator } from "./navigation/StackNavigators";
 import { NavigationContainer } from "@react-navigation/native";
 import TabNavigator from "./navigation/TabNavigator";
-import { useEffect } from "react";
-import { addInitialData, createTable, dropTable } from "./database";
+import { useEffect, useState } from "react";
 
 const Stack = createNativeStackNavigator();
 
 export default function App() {
-  useEffect(() => {
-    const fetchData = async () => {
-      createTable();
-      // await addInitialData();
-    };
-    fetchData();
-  }, []);
+  const getLocalDatabase = async () => {
+    if (
+      !(await FileSystem.getInfoAsync(FileSystem.documentDirectory + "SQLite"))
+        .exists
+    ) {
+      await FileSystem.makeDirectoryAsync(
+        Filesystem.documentDirectory + "SQLite"
+      );
+    }
+    await FileSystem.downloadAsync(
+      Asset.fromModule(require("./assets/database/bathrooms.db")).uri,
+      FileSystem.documentDirectory + "SQLite/bathrooms.db"
+    );
+  };
 
+  getLocalDatabase();
   return (
     <NavigationContainer>
       <Stack.Navigator>

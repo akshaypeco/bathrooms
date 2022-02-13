@@ -17,15 +17,17 @@ import { FontAwesome } from "@expo/vector-icons";
 import { Ionicons } from "@expo/vector-icons";
 import * as Location from "expo-location";
 import MapView, { Marker } from "react-native-maps";
-import { getFromLoc } from "../../firebase";
+import { Asset } from "expo-asset";
+import * as FileSystem from "expo-file-system";
+import { openDatabase } from "expo-sqlite";
 
 const HomeScreen = ({ navigation }) => {
   const mapRef = useRef(null);
   const [errorMsg, setErrorMsg] = useState(null);
   const [getLocation, setGetLocation] = useState(false);
   const [currLoc, setCurrLoc] = useState();
-  const [markerLoc, setMarkerLoc] = useState([]);
-  const [currRegion, setCurrRegion] = useState(null);
+  const [currMarkerLoc, setcurrMarkerLoc] = useState(null);
+  const [currRegion, setCurrRegion] = useState([]);
   const [icon, setIcon] = useState("black");
   const [markerData, setMarkerData] = useState([]);
   const [searchArea, setSearchArea] = useState(false);
@@ -33,6 +35,30 @@ const HomeScreen = ({ navigation }) => {
   const bottomSheetModalRef = useRef(null);
 
   const snapPoints = useMemo(() => ["25%", "50%", "80%"], []);
+
+  var db = openDatabase("bathrooms.db");
+  const getData = async (
+    latitude,
+    longitude,
+    longitudeDelta,
+    latitudeDelta
+  ) => {
+    const minLat = latitude - latitudeDelta;
+    const maxLat = latitude + latitudeDelta;
+    const minLong = longitude + longitudeDelta;
+    const maxLong = longitude - longitudeDelta;
+    db.transaction((tx) => {
+      tx.executeSql(
+        "SELECT * FROM bathrooms WHERE latitude BETWEEN ? AND ? AND longitude BETWEEN ? AND ?",
+        [minLat, maxLat, minLong, maxLong],
+        (tx, res) => {
+          console.log(res.rows.length);
+          setMarkerData(res.rows._array);
+        },
+        () => console.log("error fetching")
+      );
+    });
+  };
 
   const getCurrLoc = async () => {
     let { coords } = await Location.getCurrentPositionAsync({
@@ -46,18 +72,12 @@ const HomeScreen = ({ navigation }) => {
       longitudeDelta: 0.1,
     });
 
-    setMarkerLoc({
+    setcurrMarkerLoc({
       latitude: coords.latitude,
       longitude: coords.longitude,
     });
 
     return coords;
-  };
-
-  const getFromLocSave = async () => {
-    await getFromLoc(currRegion.latitude, 0.1, currRegion.longitude, 0.1).then(
-      (data) => setMarkerData(markerData.concat(data))
-    );
   };
 
   useEffect(() => {
@@ -68,13 +88,7 @@ const HomeScreen = ({ navigation }) => {
           "Permission to access location was denied. To use location-based features on map and list, the app needs your current location."
         );
       }
-      console.log(status);
-
-      let coords = await getCurrLoc();
-
-      // await getFromLoc(coords.latitude, 0.1, coords.longitude, 0.1).then(
-      //   (data) => setMarkerData(data)
-      // );
+      getCurrLoc();
     };
     fetchData();
     setGetLocation(true);
@@ -97,38 +111,31 @@ const HomeScreen = ({ navigation }) => {
         style={styles.map}
         ref={mapRef}
         initialRegion={currLoc}
-        onRegionChange={(region) => {
+        onRegionChangeComplete={(region) => {
           setCurrRegion(region);
           setIcon("black");
-          if (region.latitudeDelta > 1 || region.longitudeDelta > 1) {
-            setSearchArea(false);
-          } else {
-            setSearchArea(true);
-          }
+          setSearchArea(true);
         }}
-        onRegionChangeComplete={() => {}}
       >
-        <Marker
-          coordinate={{
-            longitude: markerLoc.longitude,
-            latitude: markerLoc.latitude,
-          }}
-        >
-          <View style={styles.currentLocationBlueDot}></View>
-        </Marker>
+        {currMarkerLoc ? (
+          <Marker
+            coordinate={{
+              longitude: currMarkerLoc.longitude,
+              latitude: currMarkerLoc.latitude,
+            }}
+          >
+            <View style={styles.currentLocationBlueDot}></View>
+          </Marker>
+        ) : null}
         {markerData.map((hit) => (
           <Marker
             coordinate={{
-              longitude: hit.longitude,
-              latitude: hit.latitude,
+              longitude: parseFloat(hit.longitude),
+              latitude: parseFloat(hit.latitude),
             }}
             key={hit.id}
           >
-            <Image
-              source={require("../../assets/reshot-icon-public-toilet-VA7389E6QM.png")}
-              style={{ width: 28, height: 28 }}
-              resizeMode="contain"
-            />
+            <View style={styles.bathroomLocationDot}></View>
           </Marker>
         ))}
       </MapView>
@@ -156,17 +163,35 @@ const HomeScreen = ({ navigation }) => {
       >
         <FontAwesome name="filter" size={24} color="black" />
       </Pressable>
-      {searchArea ? (
+      {searchArea &&
+      currRegion.longitudeDelta < 0.68 &&
+      currRegion.latitudeDelta < 0.68 ? (
         <Pressable
           style={styles.searchAreaButton}
           onPress={() => {
             setSearchArea(false);
-            // getFromLocSave();
+            getData(
+              currRegion.latitude,
+              currRegion.longitude,
+              currRegion.longitudeDelta,
+              currRegion.latitudeDelta
+            );
           }}
         >
           <Text style={{ fontSize: 17 }}>Search area</Text>
         </Pressable>
       ) : null}
+      {currRegion.longitudeDelta > 0.68 || currRegion.latitudeDelta > 0.68 ? (
+        <View
+          style={[
+            styles.searchAreaButton,
+            { width: Dimensions.get("window").height * 0.195 },
+          ]}
+        >
+          <Text style={{ fontSize: 17 }}>Zoom in to search</Text>
+        </View>
+      ) : null}
+
       <BottomSheetModal
         ref={bottomSheetModalRef}
         index={0}
@@ -287,12 +312,24 @@ const styles = StyleSheet.create({
     borderWidth: 2.25,
     borderColor: "white",
   },
+  bathroomLocationDot: {
+    height: 10,
+    width: 10,
+    backgroundColor: "#1f3a6f",
+    borderRadius: 10,
+    shadowColor: "#171717",
+    shadowOffset: { width: -2, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    // borderWidth: 2.25,
+    // borderColor: "white",
+  },
   searchAreaButton: {
     position: "absolute",
     top: Dimensions.get("window").height * 0.825,
     backgroundColor: "white",
     height: Dimensions.get("window").height * 0.05,
-    width: Dimensions.get("window").height * 0.175,
+    width: Dimensions.get("window").height * 0.165,
     alignSelf: "center",
     borderRadius: 40,
     justifyContent: "center",

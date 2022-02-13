@@ -1,9 +1,8 @@
-const { getDefaultConfig } = require("expo/metro-config");
-
-const defaultConfig = getDefaultConfig(__dirname);
+const defaultAssetExts =
+  require("metro-config/src/defaults/defaults").assetExts;
 
 module.exports = {
   resolver: {
-    assetExts: [...defaultConfig.resolver.assetExts, "db"],
+    assetExts: [...defaultAssetExts, "db", "sqlite"],
   },
 };
