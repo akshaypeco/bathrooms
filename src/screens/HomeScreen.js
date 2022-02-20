@@ -34,7 +34,7 @@ const HomeScreen = ({ navigation }) => {
 
   const bottomSheetModalRef = useRef(null);
 
-  const snapPoints = useMemo(() => ["25%", "50%", "80%"], []);
+  const snapPoints = useMemo(() => ["100%"], []);
 
   var db = openDatabase("bathrooms.db");
   const getData = async (
@@ -43,19 +43,18 @@ const HomeScreen = ({ navigation }) => {
     longitudeDelta,
     latitudeDelta
   ) => {
-    const minLat = latitude - latitudeDelta;
-    const maxLat = latitude + latitudeDelta;
-    const minLong = longitude + longitudeDelta;
-    const maxLong = longitude - longitudeDelta;
+    const minLat = latitude - latitudeDelta / 2;
+    const maxLat = latitude + latitudeDelta / 2;
+    const minLong = longitude + longitudeDelta / 2;
+    const maxLong = longitude - longitudeDelta / 2;
     db.transaction((tx) => {
       tx.executeSql(
         "SELECT * FROM bathrooms WHERE latitude BETWEEN ? AND ? AND longitude BETWEEN ? AND ?",
         [minLat, maxLat, minLong, maxLong],
         (tx, res) => {
-          console.log(res.rows.length);
           setMarkerData(res.rows._array);
         },
-        () => console.log("error fetching")
+        (e) => console.log("error fetching: ", e)
       );
     });
   };
@@ -104,6 +103,10 @@ const HomeScreen = ({ navigation }) => {
     bottomSheetModalRef.current.present();
   };
 
+  const dismissModal = () => {
+    bottomSheetModalRef.current.dismiss();
+  };
+
   return (
     <BottomSheetModalProvider style={styles.container}>
       <StatusBar barStyle="dark-content" />
@@ -115,6 +118,14 @@ const HomeScreen = ({ navigation }) => {
           setCurrRegion(region);
           setIcon("black");
           setSearchArea(true);
+          if (region.latitudeDelta <= 0.3 && region.longitudeDelta <= 0.3) {
+            getData(
+              region.latitude,
+              region.longitude,
+              region.longitudeDelta,
+              region.latitudeDelta
+            );
+          }
         }}
       >
         {currMarkerLoc ? (
@@ -163,9 +174,9 @@ const HomeScreen = ({ navigation }) => {
       >
         <FontAwesome name="filter" size={24} color="black" />
       </Pressable>
-      {searchArea &&
-      currRegion.longitudeDelta < 0.68 &&
-      currRegion.latitudeDelta < 0.68 ? (
+      {/* {searchArea &&
+      currRegion.longitudeDelta <= 0.3 &&
+      currRegion.latitudeDelta <= 0.3 ? (
         <Pressable
           style={styles.searchAreaButton}
           onPress={() => {
@@ -180,8 +191,8 @@ const HomeScreen = ({ navigation }) => {
         >
           <Text style={{ fontSize: 17 }}>Search area</Text>
         </Pressable>
-      ) : null}
-      {currRegion.longitudeDelta > 0.68 || currRegion.latitudeDelta > 0.68 ? (
+      ) : null} */}
+      {currRegion.longitudeDelta > 0.3 || currRegion.latitudeDelta > 0.3 ? (
         <View
           style={[
             styles.searchAreaButton,
@@ -211,6 +222,12 @@ const HomeScreen = ({ navigation }) => {
           </View>
           <View style={styles.filterOptionsContainer}>
             <Text style={{ fontSize: 27, fontWeight: "bold" }}>Type</Text>
+            <Text style={{ fontSize: 22, marginTop: 20, marginLeft: 20 }}>
+              Gender-neutral
+            </Text>
+            <Text style={{ fontSize: 22, marginTop: 20, marginLeft: 20 }}>
+              Family
+            </Text>
           </View>
           <View style={styles.filterOptionsContainer}>
             <Text style={{ fontSize: 27, fontWeight: "bold" }}>
@@ -221,7 +238,7 @@ const HomeScreen = ({ navigation }) => {
             <TouchableOpacity
               style={styles.reset}
               onPress={() => {
-                navigation.navigate("Homescreen");
+                dismissModal();
               }}
             >
               <Text style={{ fontSize: 18, color: "white" }}>Reset</Text>
@@ -229,7 +246,7 @@ const HomeScreen = ({ navigation }) => {
             <TouchableOpacity
               style={styles.apply}
               onPress={() => {
-                navigation.navigate("Homescreen");
+                dismissModal();
               }}
             >
               <Text style={{ fontSize: 18, color: "white" }}>Apply</Text>

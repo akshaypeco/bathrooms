@@ -3,22 +3,28 @@ import { LoginStackNavigator } from "./navigation/StackNavigators";
 import { NavigationContainer } from "@react-navigation/native";
 import TabNavigator from "./navigation/TabNavigator";
 import { useEffect, useState } from "react";
+import * as Filesystem from "expo-file-system";
+import { Asset } from "expo-asset";
+import { getStorage, ref } from "firebase/storage";
 
 const Stack = createNativeStackNavigator();
 
 export default function App() {
   const getLocalDatabase = async () => {
     if (
-      !(await FileSystem.getInfoAsync(FileSystem.documentDirectory + "SQLite"))
+      !(await Filesystem.getInfoAsync(Filesystem.documentDirectory + "SQLite"))
         .exists
     ) {
-      await FileSystem.makeDirectoryAsync(
+      await Filesystem.makeDirectoryAsync(
         Filesystem.documentDirectory + "SQLite"
       );
     }
-    await FileSystem.downloadAsync(
+
+    const storage = getStorage();
+    const pathRef = ref(storage, "bathrooms.db");
+    await Filesystem.downloadAsync(
       Asset.fromModule(require("./assets/database/bathrooms.db")).uri,
-      FileSystem.documentDirectory + "SQLite/bathrooms.db"
+      Filesystem.documentDirectory + "SQLite/bathrooms.db"
     );
   };
 
