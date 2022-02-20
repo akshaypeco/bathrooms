@@ -37,6 +37,23 @@ const HomeScreen = ({ navigation }) => {
   const snapPoints = useMemo(() => ["100%"], []);
 
   var db = openDatabase("bathrooms.db");
+  db._db.close();
+  db = openDatabase("bathrooms.db");
+
+  useEffect(() => {
+    const fetchData = async () => {
+      let { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== "granted") {
+        setErrorMsg(
+          "Permission to access location was denied. To use location-based features on map and list, the app needs your current location."
+        );
+      }
+      getCurrLoc();
+    };
+    fetchData();
+    setGetLocation(true);
+  }, [getLocation]);
+
   const getData = async (
     latitude,
     longitude,
@@ -67,8 +84,8 @@ const HomeScreen = ({ navigation }) => {
     setCurrLoc({
       latitude: coords.latitude,
       longitude: coords.longitude,
-      latitudeDelta: 0.1,
-      longitudeDelta: 0.1,
+      latitudeDelta: 0.075,
+      longitudeDelta: 0.075,
     });
 
     setcurrMarkerLoc({
@@ -78,20 +95,6 @@ const HomeScreen = ({ navigation }) => {
 
     return coords;
   };
-
-  useEffect(() => {
-    const fetchData = async () => {
-      let { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== "granted") {
-        setErrorMsg(
-          "Permission to access location was denied. To use location-based features on map and list, the app needs your current location."
-        );
-      }
-      getCurrLoc();
-    };
-    fetchData();
-    setGetLocation(true);
-  }, [getLocation]);
 
   const snapToUser = () => {
     getCurrLoc();
@@ -174,24 +177,6 @@ const HomeScreen = ({ navigation }) => {
       >
         <FontAwesome name="filter" size={24} color="black" />
       </Pressable>
-      {/* {searchArea &&
-      currRegion.longitudeDelta <= 0.3 &&
-      currRegion.latitudeDelta <= 0.3 ? (
-        <Pressable
-          style={styles.searchAreaButton}
-          onPress={() => {
-            setSearchArea(false);
-            getData(
-              currRegion.latitude,
-              currRegion.longitude,
-              currRegion.longitudeDelta,
-              currRegion.latitudeDelta
-            );
-          }}
-        >
-          <Text style={{ fontSize: 17 }}>Search area</Text>
-        </Pressable>
-      ) : null} */}
       {currRegion.longitudeDelta > 0.3 || currRegion.latitudeDelta > 0.3 ? (
         <View
           style={[
